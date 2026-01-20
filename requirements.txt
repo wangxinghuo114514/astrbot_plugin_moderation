@@ -1,0 +1,4 @@
+# AstrBot AI消息审核插件依赖
+aiohttp>=3.9.0
+Pillow>=10.0.0
+pytesseract>=0.3.10

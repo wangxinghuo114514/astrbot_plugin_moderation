@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI消息审核管理</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .card-header {
+            border-radius: 15px 15px 0 0 !important;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: bold;
+        }
+        .stat-card {
+            transition: transform 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-icon {
+            font-size: 2.5rem;
+            opacity: 0.8;
+        }
+        .record-card {
+            border-left: 4px solid #667eea;
+        }
+        .record-card.violation {
+            border-left-color: #dc3545;
+        }
+        .record-card.passed {
+            border-left-color: #28a745;
+        }
+        .badge-violation {
+            background-color: #dc3545;
+        }
+        .badge-passed {
+            background-color: #28a745;
+        }
+        .context-message {
+            background-color: #f8f9fa;
+            padding: 8px;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+        .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 200px;
+        }
+        .admin-comment {
+            background-color: #fff3cd;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .btn-feedback {
+            margin: 2px;
+        }
+        .tab-content {
+            padding: 20px 0;
+        }
+        .nav-tabs .nav-link {
+            color: #667eea;
+        }
+        .nav-tabs .nav-link.active {
+            color: #764ba2;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-shield-check"></i> AI消息审核管理
+            </a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- 统计卡片 -->
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-0">总审核数</h6>
+                                <h3 class="mb-0" id="total-count">-</h3>
+                            </div>
+                            <div class="stat-icon text-primary">
+                                <i class="bi bi-file-text"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-0">违规数</h6>
+                                <h3 class="mb-0 text-danger" id="violation-count">-</h3>
+                            </div>
+                            <div class="stat-icon text-danger">
+                                <i class="bi bi-exclamation-triangle"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-0">准确率</h6>
+                                <h3 class="mb-0 text-success" id="accuracy-rate">-</h3>
+                            </div>
+                            <div class="stat-icon text-success">
+                                <i class="bi bi-check-circle"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-0">学习样本</h6>
+                                <h3 class="mb-0 text-info" id="learning-samples">-</h3>
+                            </div>
+                            <div class="stat-icon text-info">
+                                <i class="bi bi-book"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 标签页 -->
+        <ul class="nav nav-tabs mt-4" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="records-tab" data-bs-toggle="tab" data-bs-target="#records" type="button" role="tab">
+                    <i class="bi bi-list-check"></i> 审核记录
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="learning-tab" data-bs-toggle="tab" data-bs-target="#learning" type="button" role="tab">
+                    <i class="bi bi-robot"></i> AI学习数据
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="myTabContent">
+            <!-- 审核记录 -->
+            <div class="tab-pane fade show active" id="records" role="tabpanel">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-clock-history"></i> 审核记录</span>
+                            <button class="btn btn-sm btn-light" onclick="loadRecords()">
+                                <i class="bi bi-arrow-clockwise"></i> 刷新
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="records-container">
+                            <div class="loading-spinner">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">加载中...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI学习数据 -->
+            <div class="tab-pane fade" id="learning" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="bi bi-check-circle"></i> 正确样本
+                                <span class="badge bg-success float-end" id="correct-count">0</span>
+                            </div>
+                            <div class="card-body">
+                                <div id="correct-samples-container">
+                                    <div class="loading-spinner">
+                                        <div class="spinner-border text-success" role="status">
+                                            <span class="visually-hidden">加载中...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="bi bi-x-circle"></i> 错误样本
+                                <span class="badge bg-danger float-end" id="incorrect-count">0</span>
+                            </div>
+                            <div class="card-body">
+                                <div id="incorrect-samples-container">
+                                    <div class="loading-spinner">
+                                        <div class="spinner-border text-danger" role="status">
+                                            <span class="visually-hidden">加载中...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 反馈模态框 -->
+    <div class="modal fade" id="feedbackModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-pencil-square"></i> 管理员反馈
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="feedbackForm">
+                        <input type="hidden" id="feedback-record-id">
+                        <div class="mb-3">
+                            <label class="form-label">审核判断是否正确？</label>
+                            <div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="is_correct" id="correct-yes" value="true" required>
+                                    <label class="form-check-label" for="correct-yes">
+                                        <i class="bi bi-check-circle text-success"></i> 正确
+                                    </label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="is_correct" id="correct-no" value="false">
+                                    <label class="form-check-label" for="correct-no">
+                                        <i class="bi bi-x-circle text-danger"></i> 错误
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="admin-comment" class="form-label">管理员备注（可选）</label>
+                            <textarea class="form-control" id="admin-comment" rows="3" placeholder="请输入您的备注..."></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="submitFeedback()">
+                        <i class="bi bi-send"></i> 提交反馈
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStats();
+            loadRecords();
+            loadLearningData();
+        });
+
+        // 加载统计数据
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+
+                document.getElementById('total-count').textContent = data.total;
+                document.getElementById('violation-count').textContent = data.violations;
+                document.getElementById('accuracy-rate').textContent = data.accuracy + '%';
+                document.getElementById('learning-samples').textContent =
+                    data.learning_samples.correct + data.learning_samples.incorrect;
+            } catch (error) {
+                console.error('加载统计数据失败:', error);
+            }
+        }
+
+        // 加载审核记录
+        async function loadRecords() {
+            try {
+                const response = await fetch('/api/records');
+                const data = await response.json();
+
+                const container = document.getElementById('records-container');
+
+                if (data.records.length === 0) {
+                    container.innerHTML = '<div class="text-center text-muted py-5"><i class="bi bi-inbox" style="font-size: 3rem;"></i><p class="mt-3">暂无审核记录</p></div>';
+                    return;
+                }
+
+                let html = '';
+                data.records.reverse().forEach(record => {
+                    const isViolation = record.is_violation;
+                    const statusClass = isViolation ? 'violation' : 'passed';
+                    const statusBadge = isViolation ? 'badge-violation' : 'badge-passed';
+                    const statusText = isViolation ? '违规' : '通过';
+
+                    // 构建上下文HTML
+                    let contextHtml = '';
+                    if (record.context && record.context.length > 0) {
+                        contextHtml = '<div class="mt-2"><strong>上下文：</strong>';
+                        record.context.forEach(ctx => {
+                            contextHtml += `<div class="context-message"><strong>${ctx.sender_name}:</strong> ${ctx.message}</div>`;
+                        });
+                        contextHtml += '</div>';
+                    }
+
+                    // 构建管理员反馈HTML
+                    let feedbackHtml = '';
+                    if (record.admin_reviewed) {
+                        const feedbackClass = record.admin_correct ? 'bg-success' : 'bg-danger';
+                        const feedbackText = record.admin_correct ? '正确' : '错误';
+                        feedbackHtml = `
+                            <div class="admin-comment">
+                                <strong><i class="bi bi-clipboard-check"></i> 管理员已复核：</strong>
+                                <span class="badge ${feedbackClass}">${feedbackText}</span>
+                                ${record.admin_comment ? `<div class="mt-1">备注：${record.admin_comment}</div>` : ''}
+                                <small class="text-muted d-block mt-1">时间：${record.review_time}</small>
+                            </div>
+                        `;
+                    }
+
+                    html += `
+                        <div class="card record-card ${statusClass} mb-3">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <span class="badge ${statusBadge}">${statusText}</span>
+                                        <span class="badge bg-secondary">${record.message_type === 'text' ? '文字' : '图片'}</span>
+                                        ${record.severity ? `<span class="badge bg-warning">严重程度: ${record.severity}/5</span>` : ''}
+                                    </div>
+                                    <small class="text-muted">${record.timestamp}</small>
+                                </div>
+                                <div class="mt-2">
+                                    <strong><i class="bi bi-person"></i> ${record.sender_name}</strong>
+                                    <span class="text-muted">(ID: ${record.sender_id})</span>
+                                </div>
+                                <div class="mt-2">
+                                    <strong><i class="bi bi-chat"></i> 消息：</strong>
+                                    ${record.message_type === 'image' ? 
+                                      `<div class="mt-2">
+                                           <img src="/api/proxy/image?url=${encodeURIComponent(record.message.replace('[图片] ', ''))}" 
+                                                alt="审核图片" 
+                                                class="img-fluid rounded" 
+                                                style="max-width: 300px; max-height: 300px; object-fit: contain;"
+                                                onerror="this.src='https://via.placeholder.com/300?text=图片加载失败'">
+                                       </div>
+                                       <small class="text-muted d-block mt-1">
+                                           <a href="${record.message.replace('[图片] ', '')}" target="_blank" style="color: #667eea;">
+                                               <i class="bi bi-link-45deg"></i> 查看原图
+                                           </a>
+                                       </small>` 
+                                      : 
+                                      `<p class="mb-0">${record.message}</p>`
+                                    }
+                                </div>
+                                ${contextHtml}
+                                ${isViolation ? `<div class="mt-2"><strong><i class="bi bi-exclamation-triangle text-danger"></i> 违规原因：</strong>${record.reason}</div>` : ''}
+                                ${feedbackHtml}
+                                ${!record.admin_reviewed ? `
+                                    <div class="mt-3">
+                                        <button class="btn btn-sm btn-outline-primary btn-feedback" onclick="openFeedbackModal('${record.id}')">
+                                            <i class="bi bi-pencil-square"></i> 管理员复核
+                                        </button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('加载审核记录失败:', error);
+                document.getElementById('records-container').innerHTML =
+                    '<div class="alert alert-danger">加载审核记录失败</div>';
+            }
+        }
+
+        // 加载学习数据
+        async function loadLearningData() {
+            try {
+                const response = await fetch('/api/learning');
+                const data = await response.json();
+
+                document.getElementById('correct-count').textContent = data.correct.length;
+                document.getElementById('incorrect-count').textContent = data.incorrect.length;
+
+                // 显示正确样本
+                const correctContainer = document.getElementById('correct-samples-container');
+                if (data.correct.length === 0) {
+                    correctContainer.innerHTML = '<div class="text-center text-muted py-3">暂无正确样本</div>';
+                } else {
+                    let html = '';
+                    data.correct.slice(-10).reverse().forEach((sample, index) => {
+                        const actualIndex = data.correct.length - 1 - index;
+                        html += `
+                            <div class="card mb-2">
+                                <div class="card-body">
+                                    <p class="mb-1"><strong>消息：</strong>${sample.message}</p>
+                                    <p class="mb-1 small text-muted"><strong>AI判断：</strong>${JSON.stringify(sample.ai_result)}</p>
+                                    ${sample.comment ? `<p class="mb-1 small text-info"><strong>备注：</strong>${sample.comment}</p>` : ''}
+                                    <small class="text-muted">${sample.timestamp}</small>
+                                    <div class="mt-2">
+                                        <button class="btn btn-sm btn-outline-warning" onclick="editSample('correct', ${actualIndex})">
+                                            <i class="bi bi-pencil"></i> 编辑
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteSample('correct', ${actualIndex})">
+                                            <i class="bi bi-trash"></i> 删除
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    correctContainer.innerHTML = html;
+                }
+
+                // 显示错误样本
+                const incorrectContainer = document.getElementById('incorrect-samples-container');
+                if (data.incorrect.length === 0) {
+                    incorrectContainer.innerHTML = '<div class="text-center text-muted py-3">暂无错误样本</div>';
+                } else {
+                    let html = '';
+                    data.incorrect.slice(-10).reverse().forEach((sample, index) => {
+                        const actualIndex = data.incorrect.length - 1 - index;
+                        html += `
+                            <div class="card mb-2">
+                                <div class="card-body">
+                                    <p class="mb-1"><strong>消息：</strong>${sample.message}</p>
+                                    <p class="mb-1 small text-muted"><strong>AI判断：</strong>${JSON.stringify(sample.ai_result)}</p>
+                                    ${sample.comment ? `<p class="mb-1 small text-warning"><strong>备注：</strong>${sample.comment}</p>` : ''}
+                                    <small class="text-muted">${sample.timestamp}</small>
+                                    <div class="mt-2">
+                                        <button class="btn btn-sm btn-outline-warning" onclick="editSample('incorrect', ${actualIndex})">
+                                            <i class="bi bi-pencil"></i> 编辑
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteSample('incorrect', ${actualIndex})">
+                                            <i class="bi bi-trash"></i> 删除
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    incorrectContainer.innerHTML = html;
+                }
+            } catch (error) {
+                console.error('加载学习数据失败:', error);
+            }
+        }
+
+        // 编辑样本
+        async function editSample(type, index) {
+            const newComment = prompt('请输入新的备注：');
+            if (newComment === null) return;
+            
+            try {
+                const response = await fetch('/api/learning/edit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        type: type,
+                        index: index,
+                        comment: newComment
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    alert('样本已更新');
+                    loadLearningData();
+                } else {
+                    alert('更新失败：' + data.message);
+                }
+            } catch (error) {
+                console.error('编辑样本失败:', error);
+                alert('编辑样本失败');
+            }
+        }
+
+        // 删除样本
+        async function deleteSample(type, index) {
+            if (!confirm('确定要删除这个样本吗？')) return;
+            
+            try {
+                const response = await fetch('/api/learning/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        type: type,
+                        index: index
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    alert('样本已删除');
+                    loadLearningData();
+                } else {
+                    alert('删除失败：' + data.message);
+                }
+            } catch (error) {
+                console.error('删除样本失败:', error);
+                alert('删除样本失败');
+            }
+        }
+
+        // 打开反馈模态框
+        function openFeedbackModal(recordId) {
+            document.getElementById('feedback-record-id').value = recordId;
+            document.getElementById('admin-comment').value = '';
+            document.getElementById('correct-yes').checked = false;
+            document.getElementById('correct-no').checked = false;
+
+            const modal = new bootstrap.Modal(document.getElementById('feedbackModal'));
+            modal.show();
+        }
+
+        // 提交反馈
+        async function submitFeedback() {
+            const recordId = document.getElementById('feedback-record-id').value;
+            const isCorrect = document.querySelector('input[name="is_correct"]:checked');
+            const comment = document.getElementById('admin-comment').value;
+
+            if (!isCorrect) {
+                alert('请选择审核判断是否正确');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/feedback', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        record_id: recordId,
+                        is_correct: isCorrect.value === 'true',
+                        comment: comment
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('反馈提交成功！');
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('feedbackModal'));
+                    modal.hide();
+                    loadRecords();
+                    loadStats();
+                    loadLearningData();
+                } else {
+                    alert('反馈提交失败：' + data.message);
+                }
+            } catch (error) {
+                console.error('提交反馈失败:', error);
+                alert('提交反馈失败');
+            }
+        }
+
+        // 定时刷新数据
+        setInterval(() => {
+            loadStats();
+        }, 30000); // 每30秒刷新统计数据
+    </script>
+</body>
+</html>

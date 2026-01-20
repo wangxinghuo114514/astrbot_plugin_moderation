@@ -1,0 +1,13 @@
+name: astrbot_plugin_moderation
+display_name: AI消息审核
+desc: 基于AI的QQ群聊消息审核插件，支持文字和图片审核，自动撤回违规消息并禁言，具备上下文分析和学习能力。
+help: 插件会自动监听群聊中的消息，使用AI进行审核，支持上下文分析减少误判，管理员可通过WebUI进行复核和配置。
+version: 1.0.0
+author: wangxinghuo
+repo: https://github.com/wangxinghuo114514/astrbot_plugin_moderation
+license: MIT
+tags:
+  - 消息审核
+  - AI分析
+  - 群管理
+  - 自动禁言
